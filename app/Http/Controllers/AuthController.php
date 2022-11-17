@@ -97,7 +97,6 @@ class AuthController extends Controller
             } catch (Exception $e) {
                 DB::rollBack();
                 return $this->getResponse500([$e->getMessage()]);
-                //return $this->getResponse500(["sa"]);
             }
         } else {
             return $this->getResponse500([$validator->errors()]);

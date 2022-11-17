@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Book;
+use App\Models\BookReviews;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use PhpParser\Node\Stmt\TryCatch;
 
 class BookController extends Controller
@@ -92,8 +94,54 @@ class BookController extends Controller
             return $this->getResponse500($e->getMessage());
         }
     }
-    public function addBookReview(Request $request, $book_id)
+    public function addBookReview(Request $request)
     {
-        $validator = Val::make($request->all(), ['comment' => 'required']);
+        $validator = Validator::make($request->all(), ['comment' => 'required']);
+        if (!$validator->fails()) {
+            DB::beginTransaction();
+            try {
+                $user = auth()->user();
+                $review = new BookReviews();
+                $review->comment = $request->comment;
+                $review->book_id = $request->book["id"];
+                $review->user_id = $user->id;
+
+                $review->save();
+                DB::commit();
+                return $this->getResponse201('review', 'created', $review);
+            } catch (Exception $e) {
+                DB::rollBack();
+                return $this->getResponse500($e->getMessage());
+            }
+        } else {
+            return $this->getResponse500([$validator->errors()]);
+        }
+    }
+    public function updateBookReview(Request $request, $id)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'comment' => 'required'
+        ]);
+        if (!$validator->fails()) {
+            try {
+                $user = auth()->user();
+                $review = BookReviews::where('id', $id)->get()->first();
+                if ($review->user_id != $user->id) {
+                    return $this->getResponse403();
+                } else {
+                    $review->comment = $request->comment;
+                    $review->edited = true;
+                    $review->update();
+                    DB::commit();
+                    return $this->getResponse201('review', 'updated', $review);
+                }
+            } catch (Exception $e) {
+                DB::rollBack();
+                return $this->getResponse500([$e->getMessage()]);
+            }
+        } else {
+            return $this->getResponse500([$validator->errors()]);
+        }
     }
 }
